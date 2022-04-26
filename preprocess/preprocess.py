@@ -3,6 +3,8 @@ from konlpy.tag import *
 import pandas as pd
 from .variable import pattern_dict, pos_dict, stopwords
 import itertools
+from collections import Counter
+from tabulate import tabulate
 
 class Preprocessor:
 
@@ -33,24 +35,31 @@ class Preprocessor:
         self.func_name = func_name
         self.select_func(self.func_name)
 
-
         _more_preprocess = True
 
         while _more_preprocess:
             self.clean(options, keywords)
-            if input("다른 데이터로 전처리를 진행하실꺼면 1, 종료는 2") == "2":
-                _more_preprocess == False
-
+            close_num = int(input("다른 데이터로 전처리를 진행하실꺼면 1, 종료는 2 : "))
+            if close_num == 2: _more_preprocess == False
 
     # elasticsearch로 부터 dataframe을 갖고 옴
     def get_df(self):
         fes = from_es.FromES()
         dict_df = fes.get_data()
         print(*dict_df.keys(), sep="\n")
-        df_name = input("원하는 dataframe 선택:")
+        print("원하는 dataframe 선택:")
+        df_name = input()
         self.df = dict_df[df_name]
 
-    def clean(self, options, keywords):
+    def _input_options(self):
+        print("# 1 : 특수문자  /  2 : 영문  / 3 : 숫자  /  4 : 해당 키워드 삭제  /  5 : 해당 키워드가 있는 문서 삭제")
+        options = list(map(int, input("하고자 하는 옵션 :").split(",")))
+        if "4" or "5" in options:
+            keywords = input("삭제할 keyword :").split(',')
+        else: keywords = None
+        return options, keywords
+
+    def clean(self, options=None, keywords=None):
 
         if not self.dict:
             self.columns = [self.df.columns[0]]
@@ -60,7 +69,7 @@ class Preprocessor:
             print("현재 갖고 있는 dataframe :", self.columns)
             _col = input("다시 전처리를 할 dataframe 선택 : ")
             self.df = self.dict[_col]
-            options = input('옵션 1 : 특수문자  /  2 : 영문  / 3 : 숫자  /  4 : 해당 키워드 삭제  /  5 : 해당 키워드가 있는 문서 삭제 : ' ).split(',')
+            options, keywords = self._input_options()
 
         _name = 'preprocess_'
 
@@ -73,18 +82,17 @@ class Preprocessor:
 
             if len(self.dict) <= 1:
                 _col_num = 1
-                self.dict[self.df.columns[0]] = self.df
-                self.columns.append(_name + str(_col_num))
-                self._create_df()
+                self.dict[_name + str(_col_num)] = self.df
+                # self.columns.append(_name + str(_col_num))
+                self._create_df(_col_num)
 
             # list(filter(lambda x: 'test' in x, tmp))[0].split('_')[-1]
             else:
                 _col_list = self.columns
                 _col_list.sort(reverse=True)
                 _col_num = int(list(filter(lambda x: _name in x, _col_list))[0].split("_")[-1])
-                self.columns.append(_name + str(_col_num))
-                self.df[self.columns[-1]] = self.df[self.select_column]
-                self._create_df()
+                # self.columns.append(_name + str(_col_num+1))
+                self._create_df(_col_num)
 
             # 옵션에 따른 전처리 실행
             # 1 : 특수문자  /  2 : 영문  / 3 : 숫자  /  4 : 해당 키워드 삭제  /  5 : 해당 키워드가 있는 문서 삭제
@@ -101,19 +109,28 @@ class Preprocessor:
             else:
                 print("column list :", self.columns)
                 self.select_column = input("수정할 Column, Default는 최근 전처리한 column :")
-                print("# 1 : 특수문자  /  2 : 영문  / 3 : 숫자  /  4 : 해당 키워드 삭제  /  5 : 해당 키워드가 있는 문서 삭제")
-                options = list(map(int, input("하고자 하는 옵션 :").split()))
-                keywords = input("삭제할 keyword :")
+                self._input_options()
 
-        morph_options = list(map(str, input("추출하고자 하는 형태소, 1:명사, 2:동사, 3:형용사 :").split()))
+        morph_options = list(map(str, input("추출하고자 하는 형태소, 1:명사, 2:동사, 3:형용사 :").split(",")))
 
         self.get_morph(morph_options)
 
-    def _create_df(self):
-        self.select_column = self.columns[-1]
-        tmp_df = pd.DataFrame(self.df[self.columns[-1]])
+    def _create_df(self, col_num):
+        # self.columns.append(_name + str(_col_num+1))
+        _col_name = 'preprocess_' + str(col_num)
+        print("nameeeeeeeeeeeeeeeeeeeeeeeeeeee : ", _col_name)
+        if len(self.dict) != 1:
+            print(self.dict[_col_name])
+            self.df = self.dict[_col_name]
+            print("*************************************************")
+            print(self.df)
+            self.select_column = 'preprocess_' + str(col_num+1)
+
+        tmp_df = pd.DataFrame(self.df)
         tmp_df.columns = [self.select_column]
         self.df = tmp_df.dropna().reset_index(drop=True)
+        self.dict[self.select_column] = self.df
+        self.columns = list(self.dict.keys())
 
     def clean_text(self, options, keywords=None):
         print("********************clean_text********************")
@@ -151,11 +168,13 @@ class Preprocessor:
     def del_pattern(self, num, keywords):
         print("**********************del_pattern****************************")
         print(self.select_column)
-
+        print(keywords)
+        print(self.columns)
         if num < 4:
             self.df[self.select_column] = self.df[self.select_column].replace(pattern_dict[num], '', regex=True)
 
         elif num == 4 and keywords != None:
+            print(keywords)
             for keyword in keywords:
                 self.df[self.select_column] = self.df[self.select_column].str.replace(keyword, '')
 
@@ -187,8 +206,12 @@ class Preprocessor:
         self.df = pd.DataFrame(extract_morph_words)
         self.df.columns = [self.func_name]
         self.dict[self.func_name] = self.df
-        self.dict[self.func_name].to_csv(self.func_name + "_형태소 추출 테스트 결과.csv", index=False)
+        self._get_word_freq()
+        # self.dict[self.func_name].to_csv(self.func_name + "_형태소 추출 테스트 결과.csv", index=False)
 
+    def _get_word_freq(self):
+        _word_frequncy = Counter(' '.join(list(self.df[self.func_name])).split(" ")).most_common(100)
+        print(tabulate(_word_frequncy, headers=["Word", "Frequncy"]))
 
 
 # if __name__ == "__main__":
