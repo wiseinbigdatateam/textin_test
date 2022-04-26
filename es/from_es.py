@@ -7,7 +7,7 @@ class FromES:
     def __init__(self):
 
         # domain 설정
-        self.domain = "3.37.30.193"
+        self.domain = "15.165.33.201"
 
         # port 설정 : default는 9200
         self.port = 9200
@@ -83,9 +83,9 @@ class FromES:
 
         return valid_keys
 
-if __name__ == "__main__":
-        test = FromES()
-        tm = test.get_data()
-        print(*tm.keys(), sep="\n")
-        col = input()
-        print(tm[col])
+# if __name__ == "__main__":
+#         test = FromES()
+#         tm = test.get_data()
+#         print(*tm.keys(), sep="\n")
+#         col = input()
+#         print(tm[col])
