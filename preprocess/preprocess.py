@@ -54,7 +54,8 @@ class Preprocessor:
     def _input_options(self):
         print("# 1 : 특수문자  /  2 : 영문  / 3 : 숫자  /  4 : 해당 키워드 삭제  /  5 : 해당 키워드가 있는 문서 삭제")
         options = list(map(int, input("하고자 하는 옵션 :").split(",")))
-        if "4" or "5" in options:
+        print(options)
+        if (4 or 5) in options:
             keywords = input("삭제할 keyword :").split(',')
         else: keywords = None
         return options, keywords
@@ -97,7 +98,9 @@ class Preprocessor:
             # 옵션에 따른 전처리 실행
             # 1 : 특수문자  /  2 : 영문  / 3 : 숫자  /  4 : 해당 키워드 삭제  /  5 : 해당 키워드가 있는 문서 삭제
             if options != None:
+                print(options)
                 self.clean_text(options, keywords)
+                options, keywords = None, None
 
             self.dict[self.select_column] = self.df
 
@@ -134,6 +137,7 @@ class Preprocessor:
 
     def clean_text(self, options, keywords=None):
         print("********************clean_text********************")
+        self.df = self.dict[self.select_column]
         if len(options) > 1:
             for num in options: self.del_pattern(num, keywords)
         else:
@@ -171,13 +175,13 @@ class Preprocessor:
         print(keywords)
         print(self.columns)
         if num < 4:
-            self.df[self.select_column] = self.df[self.select_column].replace(pattern_dict[num], '', regex=True)
-
+             self.df[self.select_column] = self.df[self.select_column].str.replace(pattern_dict[num], '', regex=True)
+             self.dict[self.select_column] = self.df
         elif num == 4 and keywords != None:
             print(keywords)
             for keyword in keywords:
                 self.df[self.select_column] = self.df[self.select_column].str.replace(keyword, '')
-
+                self.dict[self.select_column] = self.df
         # 옵션 5 : 해당 키워드가 있는 문서 삭제
         elif num == 5 and keywords != None:
             self.delete_field(keywords)
