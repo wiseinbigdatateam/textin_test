@@ -55,7 +55,7 @@ class Preprocessor:
         print("# 1 : 특수문자  /  2 : 영문  / 3 : 숫자  /  4 : 해당 키워드 삭제  /  5 : 해당 키워드가 있는 문서 삭제")
         options = list(map(int, input("하고자 하는 옵션 :").split(",")))
         print(options)
-        if (4 or 5) in options:
+        if 4 in options or 5 in options:
             keywords = input("삭제할 keyword :").split(',')
         else: keywords = None
         return options, keywords
@@ -112,7 +112,9 @@ class Preprocessor:
             else:
                 print("column list :", self.columns)
                 self.select_column = input("수정할 Column, Default는 최근 전처리한 column :")
+                self.df = self.dict[self.select_column]
                 self._input_options()
+
 
         morph_options = list(map(str, input("추출하고자 하는 형태소, 1:명사, 2:동사, 3:형용사 :").split(",")))
 
@@ -120,13 +122,10 @@ class Preprocessor:
 
     def _create_df(self, col_num):
         # self.columns.append(_name + str(_col_num+1))
-        _col_name = 'preprocess_' + str(col_num)
-        print("nameeeeeeeeeeeeeeeeeeeeeeeeeeee : ", _col_name)
+        print("nameeeeeeeeeeeeeeeeeeeeeeeeeeee : ", self.select_column)
         if len(self.dict) != 1:
-            print(self.dict[_col_name])
-            self.df = self.dict[_col_name]
+            print(self.dict[self.select_column])
             print("*************************************************")
-            print(self.df)
             self.select_column = 'preprocess_' + str(col_num+1)
 
         tmp_df = pd.DataFrame(self.df)
@@ -134,6 +133,7 @@ class Preprocessor:
         self.df = tmp_df.dropna().reset_index(drop=True)
         self.dict[self.select_column] = self.df
         self.columns = list(self.dict.keys())
+        self.df = self.dict[self.select_column]
 
     def clean_text(self, options, keywords=None):
         print("********************clean_text********************")
@@ -176,15 +176,17 @@ class Preprocessor:
         print(self.columns)
         if num < 4:
              self.df[self.select_column] = self.df[self.select_column].str.replace(pattern_dict[num], '', regex=True)
-             self.dict[self.select_column] = self.df
+
         elif num == 4 and keywords != None:
             print(keywords)
             for keyword in keywords:
                 self.df[self.select_column] = self.df[self.select_column].str.replace(keyword, '')
-                self.dict[self.select_column] = self.df
+
         # 옵션 5 : 해당 키워드가 있는 문서 삭제
         elif num == 5 and keywords != None:
             self.delete_field(keywords)
+
+        self.dict[self.select_column] = self.df
 
     def get_morph(self, options):
         print(self.select_column)
@@ -214,8 +216,8 @@ class Preprocessor:
         # self.dict[self.func_name].to_csv(self.func_name + "_형태소 추출 테스트 결과.csv", index=False)
 
     def _get_word_freq(self):
-        _word_frequncy = Counter(' '.join(list(self.df[self.func_name])).split(" ")).most_common(100)
-        print(tabulate(_word_frequncy, headers=["Word", "Frequncy"]))
+        _word_frequency = Counter(' '.join(list(self.df[self.func_name])).split(" ")).most_common(100)
+        print(tabulate(_word_frequency, headers=["Word", "Frequncy"]))
 
 
 # if __name__ == "__main__":
