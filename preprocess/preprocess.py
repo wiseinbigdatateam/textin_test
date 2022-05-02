@@ -49,7 +49,10 @@ class Preprocessor:
         print(*dict_df.keys(), sep="\n")
         print("원하는 dataframe 선택:")
         df_name = input()
-        self.df = dict_df[df_name]
+        self.df = dict_df[df_name].loc[1:]
+        self.df = self.df.reset_index(drop=True)
+        self.df.columns = ['original']
+        self.dict['original'] = self.df
 
     def _input_options(self):
         print("# 1 : 특수문자  /  2 : 영문  / 3 : 숫자  /  4 : 해당 키워드 삭제  /  5 : 해당 키워드가 있는 문서 삭제")
@@ -62,15 +65,11 @@ class Preprocessor:
 
     def clean(self, options=None, keywords=None):
 
-        if not self.dict:
-            self.columns = [self.df.columns[0]]
-            self.df = pd.DataFrame(self.df[self.columns])
-        else:
-            self.columns = list(self.dict.keys())
-            print("현재 갖고 있는 dataframe :", self.columns)
-            _col = input("다시 전처리를 할 dataframe 선택 : ")
-            self.df = self.dict[_col]
-            options, keywords = self._input_options()
+        self.columns = list(self.dict.keys())
+        print("현재 갖고 있는 dataframe :", self.columns)
+        self.select_column = input("전처리를 할 dataframe 선택 : ")
+        self.df = self.dict[self.select_column]
+        options, keywords = self._input_options()
 
         _name = 'preprocess_'
 
@@ -84,15 +83,12 @@ class Preprocessor:
             if len(self.dict) <= 1:
                 _col_num = 1
                 self.dict[_name + str(_col_num)] = self.df
-                # self.columns.append(_name + str(_col_num))
                 self._create_df(_col_num)
 
-            # list(filter(lambda x: 'test' in x, tmp))[0].split('_')[-1]
             else:
                 _col_list = self.columns
                 _col_list.sort(reverse=True)
                 _col_num = int(list(filter(lambda x: _name in x, _col_list))[0].split("_")[-1])
-                # self.columns.append(_name + str(_col_num+1))
                 self._create_df(_col_num)
 
             # 옵션에 따른 전처리 실행
@@ -194,34 +190,32 @@ class Preprocessor:
         morph_list = list(itertools.chain.from_iterable([pos_dict[self.func_name][num] for num in options]))
         print(morph_list)
 
-        extract_morph_words = []
-        for i, text in enumerate(self.df[self.select_column]):
-            try:
-                if self.func_name == 'okt':
-                    tmp_list = list(list(zip(*list(filter(lambda x: x[-1] in morph_list and x[0] not in stopwords and len(x[0])>1, self.func.pos(text, norm=True, stem=True)))))[0])
-                else: tmp_list = list(list(zip(*list(filter(lambda x: x[-1] in morph_list and x[0] not in stopwords and len(x[0])>1, self.func.pos(text)))))[0])
-
-            except: tmp_list = []
-
-            finally: extract_morph_words.append(tmp_list)
+        self.df[self.select_column] = self.df[self.select_column].apply(lambda x: self._extract_morph(x, morph_list))
 
         morph_name = 'morph_' + self.select_column
 
-        extract_morph_words = [' '.join(word) for word in extract_morph_words]
+        self.df[morph_name] = self.df[self.select_column].apply(lambda x: self._extract_morph(x, morph_list))
+        self.select_column = morph_name
+        self.df = pd.DataFrame(self.df[self.select_column], columns=[self.select_column])
+        self.dict[self.select_column] = self.df
+        self.columns.append(self.select_column)
 
-        self.df = pd.DataFrame(extract_morph_words)
-        self.df.columns = [self.func_name]
-        self.dict[self.func_name] = self.df
+
         self._get_word_freq()
-        # self.dict[self.func_name].to_csv(self.func_name + "_형태소 추출 테스트 결과.csv", index=False)
+
+        self.df.to_csv(self.select_column + '.csv', index=False)
+
+    def _extract_morph(self, text, morph_list):
+        try:
+            if self.func_name == 'okt':
+                text = ' '.join(list(zip(*list(filter(lambda x: x[-1] in morph_list and x[0] not in stopwords and len(x[0])>1,
+                                                      self.func.pos(text, norm=True, stem=True)))))[0])
+            else:
+                text = ' '.join(list(zip(*list(filter(lambda x: x[-1] in morph_list and x[0] not in stopwords and len(x[0])>1, self.func.pos(text)))))[0])
+        except: text = ''
+        finally: return text
+
 
     def _get_word_freq(self):
-        _word_frequency = Counter(' '.join(list(self.df[self.func_name])).split(" ")).most_common(100)
-        print(tabulate(_word_frequency, headers=["Word", "Frequncy"]))
-
-
-# if __name__ == "__main__":
-#     ps = Preprocessor()
-#     # test_df = pd.read_csv("../../전처리 테스트/test_data.csv")
-#     keywords = ['경기도', '석촌', '아파트', '부동산', '서울']
-#     save_df = ps.clean('mecab', [1,2,3,5], keywords)
+        _word_frequency = Counter(' '.join(list(self.df[self.select_column])).split(' ')).most_common(100)
+        print(tabulate(_word_frequency, headers=['Word', 'Frequency']))
