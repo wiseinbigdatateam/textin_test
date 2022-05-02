@@ -100,7 +100,6 @@ class Preprocessor:
             if options != None:
                 print(options)
                 self.clean_text(options, keywords)
-                options, keywords = None, None
 
             self.dict[self.select_column] = self.df
 
@@ -113,7 +112,7 @@ class Preprocessor:
                 print("column list :", self.columns)
                 self.select_column = input("수정할 Column, Default는 최근 전처리한 column :")
                 self.df = self.dict[self.select_column]
-                self._input_options()
+                options, keywords = self._input_options()
 
 
         morph_options = list(map(str, input("추출하고자 하는 형태소, 1:명사, 2:동사, 3:형용사 :").split(",")))
@@ -175,17 +174,18 @@ class Preprocessor:
         print(keywords)
         print(self.columns)
         if num < 4:
-             self.df[self.select_column] = self.df[self.select_column].str.replace(pattern_dict[num], '', regex=True)
+             self.df[self.select_column] = self.df[self.select_column].str.replace(pattern_dict[num], ' ', regex=True)
 
         elif num == 4 and keywords != None:
             print(keywords)
             for keyword in keywords:
-                self.df[self.select_column] = self.df[self.select_column].str.replace(keyword, '')
+                self.df[self.select_column] = self.df[self.select_column].str.replace(keyword, ' ')
 
         # 옵션 5 : 해당 키워드가 있는 문서 삭제
         elif num == 5 and keywords != None:
             self.delete_field(keywords)
 
+        self.df[self.select_column] = self.df[self.select_column].str.replace(' +', ' ', regex=True)
         self.dict[self.select_column] = self.df
 
     def get_morph(self, options):
